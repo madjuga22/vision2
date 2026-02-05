@@ -11,8 +11,8 @@ COLOR_RANGES = {
     ],
     "GREEN": [((30, 25, 30), (90, 255, 255))],
     "BLUE": [((90, 40, 40), (130, 255, 255))],
-    "WHITE": [((0, 0, 140), (180, 90, 255))],
-    "BLACK": [((0, 0, 0), (180, 90, 80))],
+    "WHITE": [((0, 0, 160), (180, 130, 255))],
+    "BLACK": [((0, 0, 0), (180, 120, 120))],
 }
 
 COLOR_NAMES_RU = {
@@ -39,6 +39,7 @@ BLACK_BAND_RATIO = 0.04
 CANDIDATE_OVERLAP = 0.3
 MIN_EXTENT = 0.5
 MIN_SATURATION = 60
+WHITE_REJECT_RATIO = 0.35
 BLACK_BAND_MIN_RATIO = 0.015
 BLACK_BAND_VERTICAL_GAP = 0.25
 BLACK_BAND_MIN_AREA = 60
@@ -129,18 +130,23 @@ def detect_color(hsv_roi, color_hint):
     if total_pixels == 0:
         return "UNKNOWN"
 
+    white_mask = build_mask(hsv_roi, "WHITE")
+    white_ratio = cv2.countNonZero(white_mask) / total_pixels
+
     if color_hint in ("RED", "GREEN", "BLUE"):
         mask = build_mask(hsv_roi, color_hint)
         ratio = cv2.countNonZero(mask) / total_pixels
         saturation_mean = float(np.mean(hsv_roi[:, :, 1]))
         min_saturation = MIN_SATURATION + (10 if color_hint == "BLUE" else 0)
-        if ratio >= COLOR_RATIO_THRESHOLD and saturation_mean >= min_saturation:
+        if (
+            ratio >= COLOR_RATIO_THRESHOLD
+            and saturation_mean >= min_saturation
+            and white_ratio < WHITE_REJECT_RATIO
+        ):
             return color_hint
         return "UNKNOWN"
 
     if color_hint == "WHITE":
-        white_mask = build_mask(hsv_roi, "WHITE")
-        white_ratio = cv2.countNonZero(white_mask) / total_pixels
         if white_ratio >= WHITE_RATIO_THRESHOLD and has_black_bands(hsv_roi):
             return "WHITE"
         return "UNKNOWN"
